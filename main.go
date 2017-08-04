@@ -1,9 +1,10 @@
 package main
 
 import (
+	"os"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
-	"os"
 )
 
 var version string
@@ -53,7 +54,6 @@ func main() {
 			Value:  "30",
 			EnvVar: "PLUGIN_TIMEOUT",
 		},
-
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
@@ -61,13 +61,13 @@ func main() {
 }
 func run(c *cli.Context) error {
 	plugin := Plugin{
-		Key:               c.String("access-key"),
-		Secret:            c.String("secret-key"),
-		Application:       c.String("application"),
-		EnvironmentName:   c.String("environment-name"),
-		VersionLabel:      c.String("version-label"),
-		Region:            c.String("region"),
-		Timeout:    			c.String("timeout"),
+		Key:             c.String("access-key"),
+		Secret:          c.String("secret-key"),
+		Application:     c.String("application"),
+		EnvironmentName: c.String("environment-name"),
+		VersionLabel:    c.String("version-label"),
+		Region:          c.String("region"),
+		Timeout:         c.String("timeout"),
 	}
 
 	return plugin.Exec()

@@ -52,6 +52,23 @@ func (p *Plugin) Exec() error {
 		"timeout":          p.Timeout,
 	}).Info("Attempting to check for deploy")
 
-	// client
+	version, err := client.DescribeApplicationVersions(
+		&elasticbeanstalk.DescribeApplicationVersionsInput{
+			ApplicationName: aws.String(p.Application),
+			VersionLabels:   aws.StringSlice([]string{p.VersionLabel}),
+		},
+	)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Error("Problem retrieving application versions")
+		return err
+	}
+
+	log.WithFields(log.Fields{
+		"version": version,
+	}).Info("Application version information")
+
 	return nil
 }
