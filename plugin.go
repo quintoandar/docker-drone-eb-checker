@@ -31,9 +31,30 @@ type Plugin struct {
 	Timeout      time.Duration
 }
 
+type logger struct {
+	env    string
+	status string
+	health string
+}
+
+func (l logger) Info(msg string) {
+	log.WithFields(log.Fields{
+		"environment": l.env,
+		"status":      l.status,
+		"health":      l.health,
+	}).Info(msg)
+}
+
+func (l logger) Error(msg string) {
+	log.WithFields(log.Fields{
+		"environment": l.env,
+		"status":      l.status,
+		"health":      l.health,
+	}).Error(msg)
+}
+
 // Exec runs the plugin
 func (p *Plugin) Exec() error {
-	// create the client
 
 	conf := &aws.Config{
 		Region: aws.String(p.Region),
@@ -51,10 +72,10 @@ func (p *Plugin) Exec() error {
 		"application":   p.Application,
 		"version-label": p.VersionLabel,
 		"timeout":       p.Timeout,
-	}).Info("attempting to check for version deploy")
+	}).Info("attempting to check for a successful deploy")
 
 	timeout := time.After(p.Timeout)
-	tick := time.Tick(1 * time.Second)
+	tick := time.Tick(10 * time.Second)
 
 	for {
 		select {
@@ -70,31 +91,48 @@ func (p *Plugin) Exec() error {
 			}
 
 		case <-tick:
-			version, err := client.DescribeApplicationVersions(
-				&elasticbeanstalk.DescribeApplicationVersionsInput{
+			envs, err := client.DescribeEnvironments(
+				&elasticbeanstalk.DescribeEnvironmentsInput{
 					ApplicationName: aws.String(p.Application),
-					VersionLabels:   aws.StringSlice([]string{p.VersionLabel}),
 				},
 			)
 
 			if err != nil {
 				log.WithFields(log.Fields{
 					"error": err,
-				}).Error("problem retrieving application version information")
+				}).Error("problem retrieving environment information")
 				return err
 			}
 
-			status := aws.StringValue(version.ApplicationVersions[0].Status)
+			for _, env := range envs.Environments {
 
-			switch status {
-			case elasticbeanstalk.ApplicationVersionStatusProcessed:
+				l := logger{
+					env:    aws.StringValue(env.EnvironmentName),
+					status: aws.StringValue(env.Status),
+					health: aws.StringValue(env.HealthStatus),
+				}
+
+				label := aws.StringValue(env.VersionLabel)
+				status := aws.StringValue(env.Status)
+				health := aws.StringValue(env.HealthStatus)
+
+				if label != p.VersionLabel {
+					l.Info("environment is updating")
+					continue
+				}
+
+				if status != elasticbeanstalk.EnvironmentStatusReady {
+					l.Info("label is correct but environment is not ready yet")
+					continue
+				}
+
+				if health != elasticbeanstalk.EnvironmentHealthStatusOk {
+					l.Info("environment is ready but health status is not ok")
+					continue
+				}
+
+				l.Info("environment deployment was successful")
 				return nil
-			case elasticbeanstalk.ApplicationVersionStatusFailed:
-				return errors.New("application version deploy failed")
-			default:
-				log.WithFields(log.Fields{
-					"status": status,
-				}).Error("waiting for application deploy to finish")
 			}
 		}
 	}
