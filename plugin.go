@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -23,10 +26,9 @@ type Plugin struct {
 	// sa-east-1
 	Region string
 
-	Application     string
-	EnvironmentName string
-	VersionLabel    string
-	Timeout         string
+	Application  string
+	VersionLabel string
+	Timeout      time.Duration
 }
 
 // Exec runs the plugin
@@ -45,30 +47,55 @@ func (p *Plugin) Exec() error {
 	client := elasticbeanstalk.New(session.New(), conf)
 
 	log.WithFields(log.Fields{
-		"region":           p.Region,
-		"application-name": p.Application,
-		"environment":      p.EnvironmentName,
-		"versionlabel":     p.VersionLabel,
-		"timeout":          p.Timeout,
-	}).Info("Attempting to check for deploy")
+		"region":        p.Region,
+		"application":   p.Application,
+		"version-label": p.VersionLabel,
+		"timeout":       p.Timeout,
+	}).Info("attempting to check for version deploy")
 
-	version, err := client.DescribeApplicationVersions(
-		&elasticbeanstalk.DescribeApplicationVersionsInput{
-			ApplicationName: aws.String(p.Application),
-			VersionLabels:   aws.StringSlice([]string{p.VersionLabel}),
-		},
-	)
+	timeout := time.After(p.Timeout)
+	tick := time.Tick(1 * time.Second)
 
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err,
-		}).Error("Problem retrieving application versions")
-		return err
+	for {
+		select {
+
+		case <-timeout:
+			err := errors.New("timed out")
+
+			if err != nil {
+				log.WithFields(log.Fields{
+					"error": err,
+				}).Error("problem retrieving application version information")
+				return err
+			}
+
+		case <-tick:
+			version, err := client.DescribeApplicationVersions(
+				&elasticbeanstalk.DescribeApplicationVersionsInput{
+					ApplicationName: aws.String(p.Application),
+					VersionLabels:   aws.StringSlice([]string{p.VersionLabel}),
+				},
+			)
+
+			if err != nil {
+				log.WithFields(log.Fields{
+					"error": err,
+				}).Error("problem retrieving application version information")
+				return err
+			}
+
+			status := aws.StringValue(version.ApplicationVersions[0].Status)
+
+			switch status {
+			case elasticbeanstalk.ApplicationVersionStatusProcessed:
+				return nil
+			case elasticbeanstalk.ApplicationVersionStatusFailed:
+				return errors.New("application version deploy failed")
+			default:
+				log.WithFields(log.Fields{
+					"status": status,
+				}).Error("waiting for application deploy to finish")
+			}
+		}
 	}
-
-	log.WithFields(log.Fields{
-		"version": version,
-	}).Info("Application version information")
-
-	return nil
 }

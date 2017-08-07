@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"strconv"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -33,11 +35,6 @@ func main() {
 			EnvVar: "PLUGIN_APPLICATION",
 		},
 		cli.StringFlag{
-			Name:   "environment-name",
-			Usage:  "environment name in the app to update",
-			EnvVar: "PLUGIN_ENVIRONMENT_NAME",
-		},
-		cli.StringFlag{
 			Name:   "version-label",
 			Usage:  "version label for the app",
 			EnvVar: "PLUGIN_VERSION_LABEL",
@@ -60,14 +57,23 @@ func main() {
 	}
 }
 func run(c *cli.Context) error {
+	timeout, err := strconv.Atoi(c.String("timeout"))
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"timeout": c.String("timeout"),
+			"error":   err,
+		}).Error("invalid timeout configuration")
+		return err
+	}
+
 	plugin := Plugin{
-		Key:             c.String("access-key"),
-		Secret:          c.String("secret-key"),
-		Application:     c.String("application"),
-		EnvironmentName: c.String("environment-name"),
-		VersionLabel:    c.String("version-label"),
-		Region:          c.String("region"),
-		Timeout:         c.String("timeout"),
+		Key:          c.String("access-key"),
+		Secret:       c.String("secret-key"),
+		Application:  c.String("application"),
+		VersionLabel: c.String("version-label"),
+		Region:       c.String("region"),
+		Timeout:      time.Duration(timeout) * time.Minute,
 	}
 
 	return plugin.Exec()
