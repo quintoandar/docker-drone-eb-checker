@@ -1,12 +1,7 @@
-FROM golang:1.7.3
-WORKDIR /go/src/github.com/quintoandar/drone-eb-checker
-ADD . .
-RUN go get ./... 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
-
-FROM alpine:3.6
+FROM golang:1.8-alpine
 RUN apk --no-cache add ca-certificates
-WORKDIR /usr/local/bin
-COPY --from=0 /go/src/github.com/quintoandar/drone-eb-checker/app .
-ENTRYPOINT ["drone-eb-checker"]  
+WORKDIR /go/src/github.com/quintoandar/docker-drone-eb-checker
+ADD . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
+ENTRYPOINT ["./app"]
 
