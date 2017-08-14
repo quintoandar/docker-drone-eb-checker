@@ -32,9 +32,10 @@ type Plugin struct {
 }
 
 type logger struct {
-	env    string
-	status string
-	health string
+	env     string
+	status  string
+	health  string
+	version string
 }
 
 func (l logger) Info(msg string) {
@@ -42,6 +43,7 @@ func (l logger) Info(msg string) {
 		"environment": l.env,
 		"status":      l.status,
 		"health":      l.health,
+		"version":     l.version,
 	}).Info(msg)
 }
 
@@ -50,6 +52,7 @@ func (l logger) Error(msg string) {
 		"environment": l.env,
 		"status":      l.status,
 		"health":      l.health,
+		"version":     l.version,
 	}).Error(msg)
 }
 
@@ -106,15 +109,16 @@ func (p *Plugin) Exec() error {
 
 			for _, env := range envs.Environments {
 
-				l := logger{
-					env:    aws.StringValue(env.EnvironmentName),
-					status: aws.StringValue(env.Status),
-					health: aws.StringValue(env.HealthStatus),
-				}
-
 				label := aws.StringValue(env.VersionLabel)
 				status := aws.StringValue(env.Status)
 				health := aws.StringValue(env.HealthStatus)
+
+				l := logger{
+					env:     aws.StringValue(env.EnvironmentName),
+					status:  health,
+					health:  status,
+					version: label,
+				}
 
 				if label != p.VersionLabel {
 					l.Info("environment is updating")
