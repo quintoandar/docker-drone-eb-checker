@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -39,21 +40,24 @@ type logger struct {
 }
 
 func (l logger) Info(msg string) {
-	log.WithFields(log.Fields{
-		"environment": l.env,
-		"status":      l.status,
-		"health":      l.health,
-		"version":     l.version,
-	}).Info(msg)
+	l.fields().Info(msg)
+}
+
+func (l logger) Warn(msg string) {
+	l.fields().Warn(msg)
 }
 
 func (l logger) Error(msg string) {
-	log.WithFields(log.Fields{
-		"environment": l.env,
-		"status":      l.status,
-		"health":      l.health,
-		"version":     l.version,
-	}).Error(msg)
+	l.fields().Error(msg)
+}
+
+func (l logger) fields() *log.Entry {
+	return log.WithFields(log.Fields{
+		"env":     l.env,
+		"status":  l.status,
+		"health":  l.health,
+		"version": l.version,
+	})
 }
 
 // Exec runs the plugin
@@ -71,10 +75,10 @@ func (p *Plugin) Exec() error {
 	client := elasticbeanstalk.New(session.New(), conf)
 
 	log.WithFields(log.Fields{
-		"region":        p.Region,
-		"application":   p.Application,
-		"version-label": p.VersionLabel,
-		"timeout":       p.Timeout,
+		"region":  p.Region,
+		"app":     p.Application,
+		"label":   p.VersionLabel,
+		"timeout": p.Timeout,
 	}).Info("attempting to check for a successful deploy")
 
 	timeout := time.After(p.Timeout)
@@ -111,27 +115,27 @@ func (p *Plugin) Exec() error {
 
 				label := aws.StringValue(env.VersionLabel)
 				status := aws.StringValue(env.Status)
-				health := aws.StringValue(env.HealthStatus)
+				health := aws.StringValue(env.Health)
 
 				l := logger{
 					env:     aws.StringValue(env.EnvironmentName),
-					status:  health,
-					health:  status,
+					status:  status,
+					health:  health,
 					version: label,
 				}
 
-				if label != p.VersionLabel {
+				if !strings.HasPrefix(p.VersionLabel, label) {
 					l.Info("environment is updating")
 					continue
 				}
 
 				if status != elasticbeanstalk.EnvironmentStatusReady {
-					l.Info("label is correct but environment is not ready yet")
+					l.Warn("environment is not ready")
 					continue
 				}
 
-				if health != elasticbeanstalk.EnvironmentHealthStatusOk {
-					l.Info("environment is ready but health status is not ok")
+				if health != elasticbeanstalk.EnvironmentHealthGreen {
+					l.Warn("environment health is not ok")
 					continue
 				}
 
