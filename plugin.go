@@ -28,6 +28,7 @@ type Plugin struct {
 	Region string
 
 	Application  string
+	Environment  string
 	VersionLabel string
 	Timeout      time.Duration
 }
@@ -77,6 +78,7 @@ func (p *Plugin) Exec() error {
 	log.WithFields(log.Fields{
 		"region":  p.Region,
 		"app":     p.Application,
+		"env":     p.Environment,
 		"label":   p.VersionLabel,
 		"timeout": p.Timeout,
 	}).Info("attempting to check for a successful deploy")
@@ -98,9 +100,16 @@ func (p *Plugin) Exec() error {
 			}
 
 		case <-tick:
+			var envNames []*string
+
+			if p.Environment != "" {
+				envNames = []*string{aws.String(p.Environment)}
+			}
+
 			envs, err := client.DescribeEnvironments(
 				&elasticbeanstalk.DescribeEnvironmentsInput{
-					ApplicationName: aws.String(p.Application),
+					ApplicationName:  aws.String(p.Application),
+					EnvironmentNames: envNames,
 				},
 			)
 

@@ -35,6 +35,11 @@ func main() {
 			EnvVar: "PLUGIN_APPLICATION",
 		},
 		cli.StringFlag{
+			Name:   "environment",
+			Usage:  "optional environment name for beanstalk",
+			EnvVar: "PLUGIN_APPLICATION",
+		},
+		cli.StringFlag{
 			Name:   "version-label",
 			Usage:  "version label for the app",
 			EnvVar: "PLUGIN_VERSION_LABEL",
@@ -71,6 +76,7 @@ func run(c *cli.Context) error {
 		Key:          c.String("access-key"),
 		Secret:       c.String("secret-key"),
 		Application:  c.String("application"),
+		Environment:  c.String("environment"),
 		VersionLabel: c.String("version-label"),
 		Region:       c.String("region"),
 		Timeout:      time.Duration(timeout) * time.Minute,
