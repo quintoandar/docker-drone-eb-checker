@@ -31,6 +31,7 @@ type Plugin struct {
 	Environment  string
 	VersionLabel string
 	Timeout      time.Duration
+	Tick         time.Duration
 }
 
 type logger struct {
@@ -84,7 +85,7 @@ func (p *Plugin) Exec() error {
 	}).Info("attempting to check for a successful deploy")
 
 	timeout := time.After(p.Timeout)
-	tick := time.Tick(10 * time.Second)
+	tick := time.Tick(p.Tick)
 
 	for {
 		select {

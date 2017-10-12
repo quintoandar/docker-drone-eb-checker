@@ -56,11 +56,18 @@ func main() {
 			Value:  "30",
 			EnvVar: "PLUGIN_TIMEOUT",
 		},
+		cli.StringFlag{
+			Name:   "tick",
+			Usage:  "deploy tick in seconds",
+			Value:  "20",
+			EnvVar: "PLUGIN_TICK",
+		},
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
+
 func run(c *cli.Context) error {
 	timeout, err := strconv.Atoi(c.String("timeout"))
 
@@ -72,6 +79,16 @@ func run(c *cli.Context) error {
 		return err
 	}
 
+	tick, err := strconv.Atoi(c.String("tick"))
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"tick":  c.String("tick"),
+			"error": err,
+		}).Error("invalid tick configuration")
+		return err
+	}
+
 	plugin := Plugin{
 		Key:          c.String("access-key"),
 		Secret:       c.String("secret-key"),
@@ -79,6 +96,7 @@ func run(c *cli.Context) error {
 		Environment:  c.String("environment"),
 		VersionLabel: c.String("version-label"),
 		Region:       c.String("region"),
+		Tick:         time.Duration(tick) * time.Second,
 		Timeout:      time.Duration(timeout) * time.Minute,
 	}
 
