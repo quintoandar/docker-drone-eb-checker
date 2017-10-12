@@ -13,10 +13,3 @@ pipeline:
     image: golang:1.8
     commands: CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
-  coverage:
-    image: plugins/coverage
-    server: http://aircover.sandbox.blackops.quintoandar.com.br
-    secrets: [ github_token ]
-    when:
-      local: false
-
