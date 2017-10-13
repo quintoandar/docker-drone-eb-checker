@@ -62,6 +62,11 @@ func main() {
 			Value:  "20",
 			EnvVar: "PLUGIN_TICK",
 		},
+		cli.BoolFlag{
+			Name:   "debug",
+			Usage:  "set to true for debug log",
+			EnvVar: "PLUGIN_DEBUG",
+		},
 	}
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
@@ -96,6 +101,7 @@ func run(c *cli.Context) error {
 		Environment:  c.String("environment"),
 		VersionLabel: c.String("version-label"),
 		Region:       c.String("region"),
+		Debug:        c.Bool("debug"),
 		Tick:         time.Duration(tick) * time.Second,
 		Timeout:      time.Duration(timeout) * time.Minute,
 	}
