@@ -37,7 +37,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "environment",
 			Usage:  "optional environment name for beanstalk",
-			EnvVar: "PLUGIN_APPLICATION",
+			EnvVar: "PLUGIN_ENVIRONMENT",
 		},
 		cli.StringFlag{
 			Name:   "version-label",

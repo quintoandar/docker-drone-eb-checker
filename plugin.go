@@ -83,14 +83,19 @@ func (p *Plugin) Exec() error {
 
 	client := elasticbeanstalk.New(session.New(), conf)
 
-	log.WithFields(log.Fields{
+	fields := log.Fields{
 		"region":  p.Region,
 		"app":     p.Application,
-		"env":     p.Environment,
 		"label":   p.VersionLabel,
 		"timeout": p.Timeout,
 		"tick":    p.Tick,
-	}).Info("attempting to check for a successful deploy")
+	}
+
+	if len(p.Environment) != 0 {
+		fields["env"] = p.Environment
+	}
+
+	log.WithFields(fields).Info("attempting to check for a successful deploy")
 
 	timeout := time.After(p.Timeout)
 	tick := time.Tick(p.Tick)
@@ -104,19 +109,13 @@ func (p *Plugin) Exec() error {
 			if err != nil {
 				log.WithFields(log.Fields{
 					"error": err,
-				}).Error("could not identify a sucessful deploy in time")
+				}).Error("could not identify a successful deploy in time")
 				return err
 			}
 
 		case <-tick:
-			log.WithFields(log.Fields{
-				"region":  p.Region,
-				"app":     p.Application,
-				"env":     p.Environment,
-				"label":   p.VersionLabel,
-				"timeout": p.Timeout,
-				"tick":    p.Tick,
-			}).Debug("ticking")
+
+			log.WithFields(fields).Debug("ticking")
 
 			envs, err := p.getEnvironments(client)
 
@@ -128,7 +127,7 @@ func (p *Plugin) Exec() error {
 			}
 
 			if len(envs.Environments) == 0 {
-				err := fmt.Errorf("application %s not found", p.Environment)
+				err := fmt.Errorf("application %s environment [%s] not found", p.Application, p.Environment)
 				log.WithFields(log.Fields{
 					"error": err,
 				}).Error("problem retrieving environment information")
