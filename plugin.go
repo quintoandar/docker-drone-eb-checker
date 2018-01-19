@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -30,8 +31,10 @@ type Plugin struct {
 	Application  string
 	Environment  string
 	VersionLabel string
-	Timeout      time.Duration
-	Tick         time.Duration
+
+	Debug   bool
+	Timeout time.Duration
+	Tick    time.Duration
 }
 
 type logger struct {
@@ -65,6 +68,10 @@ func (l logger) fields() *log.Entry {
 // Exec runs the plugin
 func (p *Plugin) Exec() error {
 
+	if p.Debug {
+		log.SetLevel(log.DebugLevel)
+	}
+
 	conf := &aws.Config{
 		Region: aws.String(p.Region),
 	}
@@ -76,13 +83,19 @@ func (p *Plugin) Exec() error {
 
 	client := elasticbeanstalk.New(session.New(), conf)
 
-	log.WithFields(log.Fields{
+	fields := log.Fields{
 		"region":  p.Region,
 		"app":     p.Application,
-		"env":     p.Environment,
 		"label":   p.VersionLabel,
 		"timeout": p.Timeout,
-	}).Info("attempting to check for a successful deploy")
+		"tick":    p.Tick,
+	}
+
+	if len(p.Environment) != 0 {
+		fields["env"] = p.Environment
+	}
+
+	log.WithFields(fields).Info("attempting to check for a successful deploy")
 
 	timeout := time.After(p.Timeout)
 	tick := time.Tick(p.Tick)
@@ -96,25 +109,25 @@ func (p *Plugin) Exec() error {
 			if err != nil {
 				log.WithFields(log.Fields{
 					"error": err,
-				}).Error("problem retrieving application version information")
+				}).Error("could not identify a successful deploy in time")
 				return err
 			}
 
 		case <-tick:
-			var envNames []*string
 
-			if p.Environment != "" {
-				envNames = []*string{aws.String(p.Environment)}
-			}
+			log.WithFields(fields).Debug("ticking")
 
-			envs, err := client.DescribeEnvironments(
-				&elasticbeanstalk.DescribeEnvironmentsInput{
-					ApplicationName:  aws.String(p.Application),
-					EnvironmentNames: envNames,
-				},
-			)
+			envs, err := p.getEnvironments(client)
 
 			if err != nil {
+				log.WithFields(log.Fields{
+					"error": err,
+				}).Error("problem retrieving environment information")
+				return err
+			}
+
+			if len(envs.Environments) == 0 {
+				err := fmt.Errorf("application %s environment [%s] not found", p.Application, p.Environment)
 				log.WithFields(log.Fields{
 					"error": err,
 				}).Error("problem retrieving environment information")
@@ -154,4 +167,21 @@ func (p *Plugin) Exec() error {
 			}
 		}
 	}
+}
+
+func (p *Plugin) getEnvironments(client *elasticbeanstalk.ElasticBeanstalk) (*elasticbeanstalk.EnvironmentDescriptionsMessage, error) {
+	if p.Environment != "" {
+		return client.DescribeEnvironments(
+			&elasticbeanstalk.DescribeEnvironmentsInput{
+				ApplicationName:  aws.String(p.Application),
+				EnvironmentNames: []*string{aws.String(p.Environment)},
+			},
+		)
+	}
+
+	return client.DescribeEnvironments(
+		&elasticbeanstalk.DescribeEnvironmentsInput{
+			ApplicationName: aws.String(p.Application),
+		},
+	)
 }
